@@ -2,7 +2,7 @@
   "name": "nekoreact",
   "version": "1.0.0",
   "description": "Anime Interaction Engine with LidSync",
-  "main": "src/index.js",
+  "main": "index.js",
   "type": "module",
   "dependencies": {
     "axios": "^1.6.0",
