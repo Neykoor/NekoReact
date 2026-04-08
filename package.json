@@ -1,13 +1,13 @@
 {
   "name": "nekoreact",
   "version": "1.0.0",
-  "description": "Librería de interacciones de anime para bots de WhatsApp con soporte para LidSync",
+  "description": "Anime Interaction Engine with LidSync",
   "main": "src/index.js",
   "type": "module",
   "dependencies": {
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "lidsync": "git+https://github.com/Neykoor/LidSync.git"
   },
-  "keywords": ["whatsapp", "baileys", "anime", "reaction", "lidsync"],
   "author": "Neykoor",
   "license": "MIT"
 }
