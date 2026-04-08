@@ -53,7 +53,10 @@ export class NekoReact {
 
     async send(action, m, customText = null) {
         const from = m.key.participant || m.key.remoteJid;
-        const to = m.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
+        
+        const quoted = m.message?.extendedTextMessage?.contextInfo?.participant;
+        const mention = m.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
+        const to = mention || quoted;
 
         if (!to) return null;
 
@@ -76,6 +79,6 @@ export class NekoReact {
             gifPlayback: true,
             caption: caption,
             mentions: [user1, user2]
-        });
+        }, { quoted: m });
     }
 }
