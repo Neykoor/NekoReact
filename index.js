@@ -1,2 +1,2 @@
-export * from './src/NekoReact.js';
-export * from './src/constants.js';
+export { NekoReact } from './src/NekoReact.js';
+export * from './src/constants.js'; 
