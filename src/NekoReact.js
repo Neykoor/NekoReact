@@ -1,5 +1,4 @@
-import axios from 'axios';
-import { API_ENDPOINTS, EXTRACTORS } from './constants.js';
+import { API_ENDPOINTS, EXTRACTORS, ACTIONS_CONFIG } from './constants.js';
 
 export class NekoReact {
     constructor(sock, options = {}) {
@@ -9,46 +8,71 @@ export class NekoReact {
     }
 
     async _resolveId(id) {
-        if (this.sock.lid && typeof this.sock.lid.resolve === 'function') {
-            return await this.sock.lid.resolve(id);
-        }
+        try {
+            if (this.sock?.lid?.resolve) {
+                return await this.sock.lid.resolve(id) || id;
+            }
+        } catch {}
         return id;
     }
 
+    _getPrimaryKey(input) {
+        const cleanInput = input?.toLowerCase().trim();
+        if (ACTIONS_CONFIG[cleanInput]) return cleanInput;
+        for (const [key, config] of Object.entries(ACTIONS_CONFIG)) {
+            if (config.aliases.includes(cleanInput)) return key;
+        }
+        return null;
+    }
+
     async _getGif(action) {
-        for (const provider of this.priority) {
+        const primaryKey = this._getPrimaryKey(action);
+        if (!primaryKey) throw new Error(`Acción "${action}" no configurada.`);
+
+        const config = ACTIONS_CONFIG[primaryKey];
+        const validProviders = this.priority.filter(p => config.support.includes(p));
+
+        for (const provider of validProviders) {
             try {
-                const url = API_ENDPOINTS[provider](action);
-                const { data } = await axios.get(url, { timeout: this.timeout });
+                const url = API_ENDPOINTS[provider](primaryKey);
+                const response = await fetch(url, { signal: AbortSignal.timeout(this.timeout) });
+                
+                if (!response.ok) continue;
+                
+                const data = await response.json();
                 const extract = EXTRACTORS[provider] || EXTRACTORS.default;
                 const result = extract(data);
-                if (result) return result;
+                
+                if (result) return { gif: result, label: config.label || primaryKey };
             } catch {
                 continue;
             }
         }
-        throw new Error(`Error: ${action} no disponible`);
+        throw new Error(`Sin recursos para: ${primaryKey}`);
     }
 
     async send(action, m, customText = null) {
         const from = m.key.participant || m.key.remoteJid;
         const to = m.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
 
-        if (!to) return;
+        if (!to) return null;
 
-        const user1 = await this._resolveId(from);
-        const user2 = await this._resolveId(to);
-        const gifUrl = await this._getGif(action);
+        const [user1, user2] = await Promise.all([
+            this._resolveId(from),
+            this._resolveId(to)
+        ]);
+
+        const { gif, label } = await this._getGif(action);
 
         const t1 = user1.split('@')[0];
         const t2 = user2.split('@')[0];
 
         const caption = customText 
             ? customText.replace('{user1}', `@${t1}`).replace('{user2}', `@${t2}`)
-            : `✨ @${t1} le dio un ${action} a @${t2}`;
+            : `✨ @${t1} le dio un ${label} a @${t2}`;
 
         return await this.sock.sendMessage(m.key.remoteJid, {
-            video: { url: gifUrl },
+            video: { url: gif },
             gifPlayback: true,
             caption: caption,
             mentions: [user1, user2]
