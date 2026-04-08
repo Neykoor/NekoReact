@@ -1,8 +1,8 @@
 export const ACTIONS = [
-    'hug', 'kiss', 'slap', 'pat', 'cry', 'cuddle', 
-    'bully', 'smug', 'bonk', 'yeet', 'blush', 'smile',
-    'handhold', 'nom', 'bite', 'glomp', 'kill', 'happy',
-    'wink', 'poke', 'dance', 'cringe'
+    'hug', 'kiss', 'slap', 'pat', 'cry', 'cuddle', 'bully', 
+    'smug', 'bonk', 'yeet', 'blush', 'smile', 'handhold', 
+    'nom', 'bite', 'glomp', 'kill', 'happy', 'wink', 'poke', 
+    'dance', 'cringe'
 ];
 
 export const API_ENDPOINTS = {
@@ -19,5 +19,5 @@ export const EXTRACTORS = {
     waifuim: (d) => d.images?.[0]?.url,
     purrbot: (d) => d.link,
     nekosapi: (d) => d.data?.url,
-    default: (d) => d.url 
+    default: (d) => d.url
 };
