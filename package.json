@@ -1,7 +1,7 @@
 {
   "name": "nekoreact",
-  "version": "1.1.0",
-  "description": "Anime Interaction Engine with LidSync & Native Fetch",
+  "version": "1.2.0",
+  "description": "Anime Interaction Engine with LidSync, FFmpeg Conversion & Buffer Processing",
   "main": "index.js",
   "type": "module",
   "exports": {
@@ -11,6 +11,9 @@
   "dependencies": {
     "lidsync": "git+https://github.com/Neykoor/LidSync.git",
     "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "author": "Neykoor",
   "license": "MIT"
