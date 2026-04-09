@@ -50,7 +50,7 @@ export class NekoReact {
                 const extract = EXTRACTORS[provider] || EXTRACTORS.default;
                 const result = extract(data);
                 
-                
+                // Filtro estricto: Solo permitimos extensiones que funcionen en el nodo de video
                 if (result && /\.(gif|mp4)(\?|$)/i.test(result)) {
                     return { gif: result, label: config.label || primaryKey };
                 }
@@ -84,11 +84,11 @@ export class NekoReact {
             ? customText.replace('{user1}', `@${t1}`).replace('{user2}', `@${t2}`)
             : `✨ @${t1} le dio un ${label} a @${t2}`;
 
-        
+         
         return await this.sock.sendMessage(m.key.remoteJid, {
-            video: { url: gif },
-            mimetype: 'video/mp4',
-            gifPlayback: true,
+            video: { url: gif },      
+            mimetype: 'video/mp4',   
+            gifPlayback: true,      
             caption: caption,
             mentions: [user1, user2]
         }, { quoted: m });
