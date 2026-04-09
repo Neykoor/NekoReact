@@ -1,10 +1,12 @@
 import { API_ENDPOINTS, EXTRACTORS, ACTIONS_CONFIG } from './constants.js';
+import { downloadContentFromMessage } from '@whiskeysockets/baileys'; 
+import fetch from 'node-fetch';
 
 export class NekoReact {
     constructor(sock, options = {}) {
         this.sock = sock;
         this.priority = options.priority || ['purrbot', 'waifupics', 'nekosbest', 'waifuim', 'nekosapi'];
-        this.timeout = options.timeout || 5000;
+        this.timeout = options.timeout || 10000; // Aumentado a 10s
     }
 
     async _resolveId(id) {
@@ -25,6 +27,26 @@ export class NekoReact {
         return null;
     }
 
+    
+    async _downloadVideo(url) {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                },
+                signal: AbortSignal.timeout(this.timeout)
+            });
+
+            if (!response.ok) return null;
+            
+            const arrayBuffer = await response.arrayBuffer();
+            return Buffer.from(arrayBuffer);
+        } catch (err) {
+            console.error('Error descargando video:', err.message);
+            return null;
+        }
+    }
+
     async _getGif(action) {
         const primaryKey = this._getPrimaryKey(action);
         if (!primaryKey) throw new Error(`Acción "${action}" no configurada.`);
@@ -32,6 +54,7 @@ export class NekoReact {
         const config = ACTIONS_CONFIG[primaryKey];
         const validProviders = this.priority.filter(p => config.support.includes(p));
 
+        
         config.support.forEach(p => {
             if (!validProviders.includes(p)) validProviders.push(p);
         });
@@ -42,54 +65,88 @@ export class NekoReact {
                 if (!endpointFn) continue;
 
                 const url = endpointFn(primaryKey);
-                const response = await fetch(url, { signal: AbortSignal.timeout(this.timeout) });
-                
+                console.log(`[NekoReact] Intentando con ${provider}: ${url}`);
+
+                const response = await fetch(url, { 
+                    signal: AbortSignal.timeout(this.timeout),
+                    headers: { 'Accept': 'application/json' }
+                });
+
                 if (!response.ok) continue;
-                
+
                 const data = await response.json();
                 const extract = EXTRACTORS[provider] || EXTRACTORS.default;
                 const result = extract(data);
+
                 
-                
-                if (result && /\.mp4(\?|$)/i.test(result)) {
-                    return { gif: result, label: config.label || primaryKey };
+                if (result && /\.(mp4|webm)(\\?|$)/i.test(result)) {
+                    console.log(`[NekoReact] URL encontrada: ${result}`);
+                    
+                    
+                    const videoBuffer = await this._downloadVideo(result);
+                    
+                    if (videoBuffer && videoBuffer.length > 1000) { 
+                        return { 
+                            videoBuffer,  
+                            label: config.label || primaryKey 
+                        };
+                    }
                 }
-            } catch {
+            } catch (err) {
+                console.error(`[NekoReact] Error con ${provider}:`, err.message);
                 continue;
             }
         }
-        throw new Error(`No se encontró un video MP4 válido para: ${primaryKey}`);
+        throw new Error(`No se encontró un video válido para: ${primaryKey}`);
     }
 
     async send(action, m, customText = null) {
         const from = m.key.participant || m.key.remoteJid;
-        
         const quoted = m.message?.extendedTextMessage?.contextInfo?.participant;
         const mention = m.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
         const to = mention || quoted;
 
-        if (!to) return null;
+        if (!to) {
+            await this.sock.sendMessage(m.key.remoteJid, {
+                text: '❌ Debes mencionar a alguien o responder a un mensaje para usar este comando.'
+            }, { quoted: m });
+            return null;
+        }
 
-        const [user1, user2] = await Promise.all([
-            this._resolveId(from),
-            this._resolveId(to)
-        ]);
+        try {
+            const [user1, user2] = await Promise.all([
+                this._resolveId(from),
+                this._resolveId(to)
+            ]);
 
-        const { gif, label } = await this._getGif(action);
+            const { videoBuffer, label } = await this._getGif(action);
 
-        const t1 = user1.split('@')[0];
-        const t2 = user2.split('@')[0];
+            const t1 = user1.split('@')[0];
+            const t2 = user2.split('@')[0];
 
-        const caption = customText 
-            ? customText.replace('{user1}', `@${t1}`).replace('{user2}', `@${t2}`)
-            : `✨ @${t1} le dio un ${label} a @${t2}`;
+            const caption = customText 
+                ? customText.replace('{user1}', `@${t1}`).replace('{user2}', `@${t2}`)
+                : `✨ @${t1} le dio un ${label} a @${t2}`;
 
-        return await this.sock.sendMessage(m.key.remoteJid, {
-            video: { url: gif },      
-            mimetype: 'video/mp4',   
-            gifPlayback: true,      
-            caption: caption,
-            mentions: [user1, user2]
-        }, { quoted: m });
+            console.log(`[NekoReact] Enviando video de ${videoBuffer.length} bytes`);
+
+        
+            const result = await this.sock.sendMessage(m.key.remoteJid, {
+                video: videoBuffer,        
+                mimetype: 'video/mp4',     
+                gifPlayback: true,         
+                caption: caption,
+                mentions: [user1, user2]
+            }, { quoted: m });
+
+            return result;
+
+        } catch (error) {
+            console.error('[NekoReact] Error:', error);
+            await this.sock.sendMessage(m.key.remoteJid, {
+                text: `❌ Error: ${error.message}`
+            }, { quoted: m });
+            return null;
+        }
     }
 }
