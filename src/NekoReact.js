@@ -1,5 +1,4 @@
 import { API_ENDPOINTS, EXTRACTORS, ACTIONS_CONFIG } from './constants.js';
-import fetch from 'node-fetch';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
@@ -9,6 +8,7 @@ import crypto from 'crypto';
 
 const execAsync = promisify(exec);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 const MESSAGE_TEMPLATES = {
     emotions: {
         angry: ["{user} está furioso... ¡cuidado!", "{user} está que arde de enojo", "{user} está harto de todo", "La ira de {user} es incontenible", "{user} está a punto de explotar"],
@@ -40,7 +40,7 @@ const MESSAGE_TEMPLATES = {
         hug: ["{user1} abraza fuertemente a {user2}", "{user1} le da un abrazo a {user2}", "{user1} envuelve a {user2} en un abrazo", "Un abrazo cálido de {user1} para {user2}"],
         kiss: ["{user1} besa apasionadamente a {user2}", "{user1} le da un beso a {user2}", "{user1} besa tiernamente a {user2}", "Un beso especial de {user1} para {user2}"],
         pat: ["{user1} acaricia la cabeza de {user2}", "{user1} da palmaditas a {user2}", "{user1} mima a {user2} con cariño"],
-        cuddle: ["{user1} se acurrucar con {user2}", "{user1} abraza fuerte a {user2}", "{user1} y {user2} se acurrucan juntos", "Un momento de mimos entre {user1} y {user2}"],
+        cuddle: ["{user1} se acurruca con {user2}", "{user1} abraza fuerte a {user2}", "{user1} y {user2} se acurrucan juntos", "Un momento de mimos entre {user1} y {user2}"],
         poke: ["{user1} toca a {user2}", "{user1} le hace cosquillas a {user2}", "{user1} pica suavemente a {user2}"],
         wave: ["{user1} saluda a {user2}", "{user1} le hace ondas a {user2}", "{user1} saluda distante a {user2}"],
         wink: ["{user1} le guiña a {user2}", "{user1} coquetea con {user2}", "{user1} le tira un ojito a {user2}"],
@@ -73,19 +73,19 @@ const MESSAGE_TEMPLATES = {
         waifu_nsfw: ["{user} disfruta de una waifu picante", "{user} se deleita con su waifu", "Una waifu especial para {user}"],
         hentai: ["{user} disfruta del hentai", "{user} aprecia el arte", "Contenido especial para {user}"]
     }
-};    export class NekoReact {
+};
+
+export class NekoReact {
     constructor(sock, options = {}) {
         this.sock = sock;
-        this.priority = options.priority || ['nekosbest', 'waifupics', 'otakugifs', 'kyoko', 'hmtai'];
+        this.priority = options.priority || ['nekosbest', 'waifupics', 'purrbot', 'waifuim'];
         this.timeout = options.timeout || 15000;
         this.tempDir = path.join(__dirname, '..', 'temp');
         this.ensureTempDir();
     }
 
     async ensureTempDir() {
-        try {
-            await fs.mkdir(this.tempDir, { recursive: true });
-        } catch {}
+        try { await fs.mkdir(this.tempDir, { recursive: true }); } catch {}
     }
 
     async _resolveId(id) {
@@ -95,9 +95,7 @@ const MESSAGE_TEMPLATES = {
                 const resolved = await this.sock.lid.resolve(id);
                 return resolved || id;
             }
-        } catch (e) {
-            console.error('[NekoReact] Error en LidSync:', e.message);
-        }
+        } catch (e) {}
         return id.split(':')[0].split('@')[0] + '@s.whatsapp.net';
     }
 
@@ -114,158 +112,119 @@ const MESSAGE_TEMPLATES = {
         if (!templates || !Array.isArray(templates)) return null;
         return templates[Math.floor(Math.random() * templates.length)];
     }
-}
-async _download(url) {
-    try {
-        const res = await fetch(url, {
-            headers: { 
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'image/gif,image/*,*/*'
-            },
-            signal: AbortSignal.timeout(this.timeout)
-        });
-        if (!res.ok) return null;
-        return Buffer.from(await res.arrayBuffer());
-    } catch (e) {
-        console.error('[NekoReact] Error descargando:', e.message);
-        return null;
-    }
-}
 
-async _convertGifToMp4(gifBuffer) {
-    const id = crypto.randomUUID();
-    const gifPath = path.join(this.tempDir, `${id}.gif`);
-    const mp4Path = path.join(this.tempDir, `${id}.mp4`);
-    
-    try {
-        await fs.writeFile(gifPath, gifBuffer);
-        const cmd = `ffmpeg -i "${gifPath}" -an -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -f mp4 "${mp4Path}"`;
-        await execAsync(cmd, { timeout: 30000 });
-        const mp4Buffer = await fs.readFile(mp4Path);
-        
-        await Promise.all([
-            fs.unlink(gifPath).catch(() => {}),
-            fs.unlink(mp4Path).catch(() => {})
-        ]);
-        
-        return mp4Buffer;
-    } catch (e) {
-        await Promise.all([
-            fs.unlink(gifPath).catch(() => {}),
-            fs.unlink(mp4Path).catch(() => {})
-        ]);
-        console.error('[NekoReact] Error conversión:', e.message);
-        return null;
-    }
-}
-async _getGif(action) {
-    const key = this._getPrimaryKey(action);
-    if (!key) throw new Error(`Acción "${action}" no configurada.`);
-    
-    const config = ACTIONS_CONFIG[key];
-    const providers = [...new Set([
-        ...this.priority.filter(p => config.support.includes(p)),
-        ...config.support
-    ])];
-    
-    for (const provider of providers) {
+    async _download(url) {
         try {
-            const endpoint = API_ENDPOINTS[provider];
-            if (!endpoint) continue;
-            
-            const apiUrl = endpoint(key);
-            const res = await fetch(apiUrl, { 
-                signal: AbortSignal.timeout(this.timeout),
-                headers: { 'User-Agent': 'NekoReact/1.0' }
+            const res = await fetch(url, {
+                headers: { 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'image/gif,image/*,*/*'
+                },
+                signal: AbortSignal.timeout(this.timeout)
             });
-            
-            if (!res.ok) continue;
-            
-            const data = await res.json();
-            const url = (EXTRACTORS[provider] || EXTRACTORS.default)(data);
-            if (!url) continue;
-            
-            const buffer = await this._download(url);
-            if (!buffer || buffer.length < 1000) continue;
-            
-            if (url.toLowerCase().endsWith('.gif') || !url.toLowerCase().endsWith('.mp4')) {
-                const mp4Buffer = await this._convertGifToMp4(buffer);
-                if (mp4Buffer && mp4Buffer.length > 1000) {
-                    return { buffer: mp4Buffer, label: config.label || key, key };
-                }
-            } else {
-                return { buffer, label: config.label || key, key };
-            }
-        } catch (e) {
-            console.error(`[NekoReact] Error con ${provider}:`, e.message);
-            continue;
-        }
+            if (!res.ok) return null;
+            return Buffer.from(await res.arrayBuffer());
+        } catch (e) { return null; }
     }
-    
-    throw new Error(`No se encontró contenido válido para: ${key}`);
-}
-async send(action, m, customText = null) {
-    const msg = m.message?.extendedTextMessage || m.message?.videoMessage || m.message?.imageMessage || m.message;
-    const context = msg?.contextInfo;
-    const from = m.key.participant || m.key.remoteJid;
-    const mentions = context?.mentionedJid || [];
-    const quotedParticipant = context?.participant;
-    
-    let to = null;
-    let messageType = 'emotions';
-    let mentionsList = [await this._resolveId(from)];
-    
-    if (mentions.length >= 1) {
-        to = mentions[0];
-        messageType = 'interaction';
-        const [u1, u2] = await Promise.all([from, to].map(id => this._resolveId(id)));
-        mentionsList = [u1, u2];
-    } else if (quotedParticipant && quotedParticipant !== from) {
-        to = quotedParticipant;
-        messageType = 'interaction';
-        const [u1, u2] = await Promise.all([from, to].map(id => this._resolveId(id)));
-        mentionsList = [u1, u2];
-    }
-    
-    try {
-        const { buffer, label, key } = await this._getGif(action);
-        const config = ACTIONS_CONFIG[key];
-        let messageCategory = messageType;
-        if (config?.nsfw) messageCategory = 'nsfw';
-        
-        let caption;
-        if (customText) {
-            caption = customText
-                .replace('{user1}', `@${mentionsList[0].split('@')[0]}`)
-                .replace('{user2}', mentionsList[1] ? `@${mentionsList[1].split('@')[0]}` : '');
-        } else {
-            const template = this._getRandomMessage(messageCategory, key);
-            if (template) {
-                caption = template.replace(/{user(\d*)}/g, (match, num) => {
-                    const idx = num ? parseInt(num) - 1 : 0;
-                    return mentionsList[idx] ? `@${mentionsList[idx].split('@')[0]}` : match;
-                });
-            } else {
-                if (messageCategory === 'emotions' || mentionsList.length === 1) {
-                    caption = `@${mentionsList[0].split('@')[0]} ${label}`;
-                } else {
-                    caption = `@${mentionsList[0].split('@')[0]} le dio un ${label} a @${mentionsList[1].split('@')[0]}`;
-                }
-            }
-        }
-        
-        return await this.sock.sendMessage(m.key.remoteJid, {
-            video: buffer,
-            mimetype: 'video/mp4',
-            gifPlayback: true,
-            caption,
-            mentions: mentionsList
-        }, { quoted: m });
-        
-    } catch (error) {
-        console.error(`[NekoReact] Fallo en ${action}:`, error.message);
-        throw error;
-    }
-}
-export default NekoReact;
 
+    async _convertGifToMp4(gifBuffer) {
+        const id = crypto.randomUUID();
+        const gifPath = path.join(this.tempDir, `${id}.gif`);
+        const mp4Path = path.join(this.tempDir, `${id}.mp4`);
+        try {
+            await fs.writeFile(gifPath, gifBuffer);
+            const cmd = `ffmpeg -i "${gifPath}" -an -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -f mp4 "${mp4Path}"`;
+            await execAsync(cmd, { timeout: 30000 });
+            const mp4Buffer = await fs.readFile(mp4Path);
+            await Promise.all([fs.unlink(gifPath).catch(() => {}), fs.unlink(mp4Path).catch(() => {})]);
+            return mp4Buffer;
+        } catch (e) {
+            await Promise.all([fs.unlink(gifPath).catch(() => {}), fs.unlink(mp4Path).catch(() => {})]);
+            return null;
+        }
+    }
+
+    async _getGif(action) {
+        const key = this._getPrimaryKey(action);
+        if (!key) throw new Error(`Acción "${action}" no configurada.`);
+        const config = ACTIONS_CONFIG[key];
+        const providers = [...new Set([...this.priority.filter(p => config.support.includes(p)), ...config.support])];
+        
+        for (const provider of providers) {
+            try {
+                const endpoint = API_ENDPOINTS[provider];
+                if (!endpoint) continue;
+                const apiUrl = endpoint(key);
+                const res = await fetch(apiUrl, { signal: AbortSignal.timeout(this.timeout) });
+                if (!res.ok) continue;
+                const data = await res.json();
+                const url = (EXTRACTORS[provider] || EXTRACTORS.default)(data);
+                if (!url) continue;
+                const buffer = await this._download(url);
+                if (!buffer || buffer.length < 1000) continue;
+                if (url.toLowerCase().endsWith('.gif') || !url.toLowerCase().endsWith('.mp4')) {
+                    const mp4Buffer = await this._convertGifToMp4(buffer);
+                    if (mp4Buffer) return { buffer: mp4Buffer, label: config.label || key, key };
+                } else {
+                    return { buffer, label: config.label || key, key };
+                }
+            } catch (e) { continue; }
+        }
+        throw new Error(`Sin recursos para: ${key}`);
+    }
+
+    async send(action, m, customText = null) {
+        const msg = m.message?.extendedTextMessage || m.message?.videoMessage || m.message?.imageMessage || m.message;
+        const context = msg?.contextInfo;
+        const from = m.key.participant || m.key.remoteJid;
+        const mentions = context?.mentionedJid || [];
+        const quotedParticipant = context?.participant;
+        
+        let to = null;
+        let messageType = 'emotions';
+        let mentionsList = [await this._resolveId(from)];
+        
+        if (mentions.length >= 1) {
+            to = mentions[0];
+            messageType = 'interaction';
+            const [u1, u2] = await Promise.all([from, to].map(id => this._resolveId(id)));
+            mentionsList = [u1, u2];
+        } else if (quotedParticipant && quotedParticipant !== from) {
+            to = quotedParticipant;
+            messageType = 'interaction';
+            const [u1, u2] = await Promise.all([from, to].map(id => this._resolveId(id)));
+            mentionsList = [u1, u2];
+        }
+        
+        try {
+            const { buffer, label, key } = await this._getGif(action);
+            const config = ACTIONS_CONFIG[key];
+            let category = config?.nsfw ? 'nsfw' : messageType;
+            let caption;
+
+            if (customText) {
+                caption = customText.replace('{user1}', `@${mentionsList[0].split('@')[0]}`).replace('{user2}', mentionsList[1] ? `@${mentionsList[1].split('@')[0]}` : '');
+            } else {
+                const template = this._getRandomMessage(category, key);
+                if (template) {
+                    caption = template.replace(/{user(\d*)}/g, (match, num) => {
+                        const idx = num ? parseInt(num) - 1 : 0;
+                        return mentionsList[idx] ? `@${mentionsList[idx].split('@')[0]}` : match;
+                    }).replace(/{user}/g, `@${mentionsList[0].split('@')[0]}`);
+                } else {
+                    caption = messageType === 'emotions' ? `@${mentionsList[0].split('@')[0]} ${label}` : `@${mentionsList[0].split('@')[0]} le dio un ${label} a @${mentionsList[1].split('@')[0]}`;
+                }
+            }
+            
+            return await this.sock.sendMessage(m.key.remoteJid, {
+                video: buffer,
+                gifPlayback: true,
+                caption,
+                mentions: mentionsList
+            }, { quoted: m });
+        } catch (error) { throw error; }
+    }
+}
+
+export default NekoReact;
+            
