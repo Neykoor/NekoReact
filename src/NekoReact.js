@@ -9,12 +9,16 @@ export class NekoReact {
     }
 
     async _resolveId(id) {
+        if (!id) return null;
         try {
             if (this.sock?.lid?.resolve) {
-                return await this.sock.lid.resolve(id) || id;
+                const resolved = await this.sock.lid.resolve(id);
+                return resolved || id;
             }
-        } catch {}
-        return id;
+        } catch (e) {
+            console.error('[NekoReact] Error en LidSync:', e.message);
+        }
+        return id.split(':')[0].split('@')[0] + '@s.whatsapp.net';
     }
 
     _getPrimaryKey(input) {
@@ -68,20 +72,28 @@ export class NekoReact {
     }
 
     async send(action, m, customText = null) {
+        const msg = m.message?.extendedTextMessage || m.message?.videoMessage || m.message?.imageMessage || m.message;
+        const context = msg?.contextInfo;
+        
         const from = m.key.participant || m.key.remoteJid;
-        const quoted = m.message?.extendedTextMessage?.contextInfo?.participant;
-        const mention = m.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
-        const to = mention || quoted;
+        const to = context?.mentionedJid?.[0] || context?.participant;
 
         if (!to) return null;
 
         try {
-            const [u1, u2] = await Promise.all([this._resolveId(from), this._resolveId(to)]);
+            const [u1, u2] = await Promise.all([
+                this._resolveId(from),
+                this._resolveId(to)
+            ]);
+
             const { buffer, label } = await this._getGif(action);
 
+            const t1 = u1.split('@')[0];
+            const t2 = u2.split('@')[0];
+
             const caption = customText 
-                ? customText.replace('{user1}', `@${u1.split('@')[0]}`).replace('{user2}', `@${u2.split('@')[0]}`)
-                : `✨ @${u1.split('@')[0]} le dio un ${label} a @${u2.split('@')[0]}`;
+                ? customText.replace('{user1}', `@${t1}`).replace('{user2}', `@${t2}`)
+                : `✨ @${t1} le dio un ${label} a @${t2}`;
 
             return await this.sock.sendMessage(m.key.remoteJid, {
                 video: buffer,
@@ -93,7 +105,7 @@ export class NekoReact {
 
         } catch (error) {
             console.error(`[NekoReact] Fallo en ${action}:`, error.message);
-            return null;
+            throw error;
         }
     }
 }
