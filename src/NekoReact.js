@@ -3,7 +3,7 @@ import { API_ENDPOINTS, EXTRACTORS, ACTIONS_CONFIG } from './constants.js';
 export class NekoReact {
     constructor(sock, options = {}) {
         this.sock = sock;
-        this.priority = options.priority || ['nekosbest', 'waifupics', 'purrbot', 'waifuim'];
+        this.priority = options.priority || ['purrbot', 'waifupics', 'nekosbest', 'waifuim', 'nekosapi'];
         this.timeout = options.timeout || 5000;
     }
 
@@ -32,9 +32,16 @@ export class NekoReact {
         const config = ACTIONS_CONFIG[primaryKey];
         const validProviders = this.priority.filter(p => config.support.includes(p));
 
+        config.support.forEach(p => {
+            if (!validProviders.includes(p)) validProviders.push(p);
+        });
+
         for (const provider of validProviders) {
             try {
-                const url = API_ENDPOINTS[provider](primaryKey);
+                const endpointFn = API_ENDPOINTS[provider];
+                if (!endpointFn) continue;
+
+                const url = endpointFn(primaryKey);
                 const response = await fetch(url, { signal: AbortSignal.timeout(this.timeout) });
                 
                 if (!response.ok) continue;
@@ -43,12 +50,14 @@ export class NekoReact {
                 const extract = EXTRACTORS[provider] || EXTRACTORS.default;
                 const result = extract(data);
                 
-                if (result) return { gif: result, label: config.label || primaryKey };
+                if (result && /\.(gif|mp4)(\?|$)/i.test(result)) {
+                    return { gif: result, label: config.label || primaryKey };
+                }
             } catch {
                 continue;
             }
         }
-        throw new Error(`Sin recursos para: ${primaryKey}`);
+        throw new Error(`Sin recursos válidos para: ${primaryKey}`);
     }
 
     async send(action, m, customText = null) {
