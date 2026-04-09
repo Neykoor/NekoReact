@@ -1,11 +1,28 @@
 import { API_ENDPOINTS, EXTRACTORS, ACTIONS_CONFIG } from './constants.js';
 import fetch from 'node-fetch';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import crypto from 'crypto';
+
+const execAsync = promisify(exec);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export class NekoReact {
     constructor(sock, options = {}) {
         this.sock = sock;
         this.priority = options.priority || ['purrbot', 'nekosbest', 'waifupics', 'waifuim', 'nekosapi'];
-        this.timeout = options.timeout || 10000;
+        this.timeout = options.timeout || 15000;
+        this.tempDir = path.join(__dirname, '..', 'temp');
+        this.ensureTempDir();
+    }
+
+    async ensureTempDir() {
+        try {
+            await fs.mkdir(this.tempDir, { recursive: true });
+        } catch {}
     }
 
     async _resolveId(id) {
@@ -30,12 +47,46 @@ export class NekoReact {
     async _download(url) {
         try {
             const res = await fetch(url, {
-                headers: { 'User-Agent': 'Mozilla/5.0' },
+                headers: { 
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept': 'image/gif,image/*,*/*'
+                },
                 signal: AbortSignal.timeout(this.timeout)
             });
             if (!res.ok) return null;
             return Buffer.from(await res.arrayBuffer());
-        } catch {
+        } catch (e) {
+            console.error('[NekoReact] Error descargando:', e.message);
+            return null;
+        }
+    }
+
+    async _convertGifToMp4(gifBuffer) {
+        const id = crypto.randomUUID();
+        const gifPath = path.join(this.tempDir, `${id}.gif`);
+        const mp4Path = path.join(this.tempDir, `${id}.mp4`);
+        
+        try {
+            await fs.writeFile(gifPath, gifBuffer);
+            
+            const cmd = `ffmpeg -i "${gifPath}" -an -movflags faststart -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" -f mp4 "${mp4Path}"`;
+            
+            await execAsync(cmd, { timeout: 30000 });
+            
+            const mp4Buffer = await fs.readFile(mp4Path);
+            
+            await Promise.all([
+                fs.unlink(gifPath).catch(() => {}),
+                fs.unlink(mp4Path).catch(() => {})
+            ]);
+            
+            return mp4Buffer;
+        } catch (e) {
+            await Promise.all([
+                fs.unlink(gifPath).catch(() => {}),
+                fs.unlink(mp4Path).catch(() => {})
+            ]);
+            console.error('[NekoReact] Error conversión:', e.message);
             return null;
         }
     }
@@ -52,23 +103,37 @@ export class NekoReact {
                 const endpoint = API_ENDPOINTS[provider];
                 if (!endpoint) continue;
 
-                const res = await fetch(endpoint(key), { signal: AbortSignal.timeout(this.timeout) });
+                const apiUrl = endpoint(key);
+                const res = await fetch(apiUrl, { 
+                    signal: AbortSignal.timeout(this.timeout),
+                    headers: { 'User-Agent': 'NekoReact/1.0' }
+                });
+                
                 if (!res.ok) continue;
 
                 const data = await res.json();
                 const url = (EXTRACTORS[provider] || EXTRACTORS.default)(data);
 
-                if (url && /\.mp4(\?|$)/i.test(url)) {
-                    const buffer = await this._download(url);
-                    if (buffer && buffer.length > 1000) {
-                        return { buffer, label: config.label || key };
+                if (!url) continue;
+
+                const buffer = await this._download(url);
+                if (!buffer || buffer.length < 1000) continue;
+
+                if (url.toLowerCase().endsWith('.gif') || !url.toLowerCase().endsWith('.mp4')) {
+                    const mp4Buffer = await this._convertGifToMp4(buffer);
+                    if (mp4Buffer && mp4Buffer.length > 1000) {
+                        return { buffer: mp4Buffer, label: config.label || key };
                     }
+                } else {
+                    return { buffer, label: config.label || key };
                 }
-            } catch {
+
+            } catch (e) {
+                console.error(`[NekoReact] Error con ${provider}:`, e.message);
                 continue;
             }
         }
-        throw new Error(`No se encontró video MP4 para: ${key}`);
+        throw new Error(`No se encontró contenido válido para: ${key}`);
     }
 
     async send(action, m, customText = null) {
@@ -85,7 +150,7 @@ export class NekoReact {
                 this._resolveId(from),
                 this._resolveId(to)
             ]);
-
+            
             const { buffer, label } = await this._getGif(action);
 
             const t1 = u1.split('@')[0];
