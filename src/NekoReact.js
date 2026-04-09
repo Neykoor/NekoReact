@@ -85,7 +85,7 @@ const MESSAGE_TEMPLATES = {
         sex: ["🔞 {user} disfruta del momento", "💕 {user} vive la pasión", "🌸 Un momento íntimo para {user}"],
         anal: ["🔞 {user} disfruta del momento", "💕 {user} vive la experiencia", "🌸 Algo especial para {user}"]
     }
-    export class NekoReact {
+};export class NekoReact {
     constructor(sock, options = {}) {
         this.sock = sock;
         this.priority = options.priority || ['purrbot', 'nekosbest', 'waifupics', 'waifuim', 'nekosfun'];
@@ -264,6 +264,5 @@ const MESSAGE_TEMPLATES = {
             throw error;
         }
     }
-}
-
-};
+                    }
+                                               
