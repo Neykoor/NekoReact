@@ -4,6 +4,10 @@
   "description": "Anime Interaction Engine with LidSync & Native Fetch",
   "main": "index.js",
   "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./constants": "./src/constants.js"
+  },
   "dependencies": {
     "lidsync": "git+https://github.com/Neykoor/LidSync.git"
   },
