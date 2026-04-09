@@ -36,7 +36,9 @@ export const API_ENDPOINTS = {
     nekosbest: (a) => `https://nekos.best/api/v2/${a}`,
     waifupics: (a) => {
         const type = ACTIONS_CONFIG[a]?.nsfw ? 'nsfw' : 'sfw';
-        const tag = a.replace('_nsfw', '');
+        
+        const tagsMap = { 'angry': 'bully', 'kill': 'kill' }; 
+        const tag = tagsMap[a] || a.replace('_nsfw', '');
         return `https://api.waifu.pics/${type}/${tag}`;
     },
     nekoslife: (a) => `https://nekos.life/api/v2/img/${a}`,
