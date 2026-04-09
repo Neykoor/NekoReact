@@ -50,15 +50,15 @@ export class NekoReact {
                 const extract = EXTRACTORS[provider] || EXTRACTORS.default;
                 const result = extract(data);
                 
-                // Filtro estricto: Solo permitimos extensiones que funcionen en el nodo de video
-                if (result && /\.(gif|mp4)(\?|$)/i.test(result)) {
+                
+                if (result && /\.mp4(\?|$)/i.test(result)) {
                     return { gif: result, label: config.label || primaryKey };
                 }
             } catch {
                 continue;
             }
         }
-        throw new Error(`Sin recursos válidos para: ${primaryKey}`);
+        throw new Error(`No se encontró un video MP4 válido para: ${primaryKey}`);
     }
 
     async send(action, m, customText = null) {
@@ -84,7 +84,6 @@ export class NekoReact {
             ? customText.replace('{user1}', `@${t1}`).replace('{user2}', `@${t2}`)
             : `✨ @${t1} le dio un ${label} a @${t2}`;
 
-         
         return await this.sock.sendMessage(m.key.remoteJid, {
             video: { url: gif },      
             mimetype: 'video/mp4',   
