@@ -1,6 +1,6 @@
 const ALL = ['purrbot', 'waifupics', 'nekosbest', 'waifuim', 'nekosapi', 'nekoslife'];
 const BASIC = ['purrbot', 'nekosbest'];
-const NSFW_PROVIDERS = ['waifupics', 'waifuim', 'nekosapi'];
+const NSFW_PROVIDERS = ['waifuim', 'waifupics', 'nekosapi'];
 
 export const ACTIONS_CONFIG = {
     angry: { aliases: ['enojado', 'enojada'], support: BASIC, label: 'enfado' },
@@ -36,8 +36,11 @@ export const API_ENDPOINTS = {
     nekosbest: (a) => `https://nekos.best/api/v2/${a}`,
     waifupics: (a) => {
         const type = ACTIONS_CONFIG[a]?.nsfw ? 'nsfw' : 'sfw';
-        
-        const tagsMap = { 'angry': 'bully', 'kill': 'kill' }; 
+        const tagsMap = { 
+            angry: 'bully', 
+            ecchi: 'waifu', 
+            hentai: 'waifu' 
+        }; 
         const tag = tagsMap[a] || a.replace('_nsfw', '');
         return `https://api.waifu.pics/${type}/${tag}`;
     },
@@ -45,12 +48,23 @@ export const API_ENDPOINTS = {
     purrbot: (a) => `https://purrbot.site/api/img/sfw/${a}/gif`,
     waifuim: (a) => {
         const isNsfw = ACTIONS_CONFIG[a]?.nsfw ? 'true' : 'false';
-        const tag = a.replace('_nsfw', '');
+        const tagsMap = {
+            ecchi: 'ero',
+            hentai: 'hentai',
+            paizuri: 'paizuri',
+            ero: 'ero'
+        };
+        const tag = tagsMap[a] || a.replace('_nsfw', '');
         return `https://api.waifu.im/search?included_tags=${tag}&is_nsfw=${isNsfw}`;
     },
     nekosapi: (a) => {
         const rating = ACTIONS_CONFIG[a]?.nsfw ? 'explicit' : 'safe';
-        const tag = a.replace('_nsfw', '');
+        const tagsMap = {
+            ecchi: 'ecchi',
+            hentai: 'hentai',
+            waifu_nsfw: 'waifu'
+        };
+        const tag = tagsMap[a] || a.replace('_nsfw', '');
         return `https://api.nekosapi.com/v3/images/random?tag=${tag}&rating=${rating}`;
     }
 };
