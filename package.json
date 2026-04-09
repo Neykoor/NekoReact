@@ -9,7 +9,8 @@
     "./constants": "./src/constants.js"
   },
   "dependencies": {
-    "lidsync": "git+https://github.com/Neykoor/LidSync.git"
+    "lidsync": "git+https://github.com/Neykoor/LidSync.git",
+    "node-fetch": "^3.3.2"
   },
   "author": "Neykoor",
   "license": "MIT"
