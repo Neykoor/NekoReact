@@ -1,4 +1,4 @@
-import { API_ENDPOINTS, EXTRACTORS, ACTIONS_CONFIG } from './constants.js';
+import { API_ENDPOINTS, EXTRACTORS, ACTIONS_CONFIG_FINAL as ACTIONS_CONFIG } from './constants.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs/promises';
@@ -173,7 +173,8 @@ export class NekoReact {
         throw new Error(`Sin recursos para: ${key}`);
     }
 
-    async send(action, m, customText = null) {
+
+    async send(m, action, options = {}) {
         const msg = m.message?.extendedTextMessage || m.message?.videoMessage || m.message?.imageMessage || m.message;
         const context = msg?.contextInfo;
         const from = m.key.participant || m.key.remoteJid;
@@ -202,17 +203,25 @@ export class NekoReact {
             let category = config?.nsfw ? 'nsfw' : messageType;
             let caption;
 
-            if (customText) {
-                caption = customText.replace('{user1}', `@${mentionsList[0].split('@')[0]}`).replace('{user2}', mentionsList[1] ? `@${mentionsList[1].split('@')[0]}` : '');
+            
+            let customText = typeof options === 'string' ? options : options.text;
+
+            if (customText && typeof customText === 'string') {
+                
+                const u1 = mentionsList[0]?.split('@')[0] || 'Desconocido';
+                const u2 = mentionsList[1]?.split('@')[0] || '';
+                caption = customText.replace('{user1}', `@${u1}`).replace('{user2}', u2 ? `@${u2}` : '');
             } else {
                 const template = this._getRandomMessage(category, key);
                 if (template) {
                     caption = template.replace(/{user(\d*)}/g, (match, num) => {
                         const idx = num ? parseInt(num) - 1 : 0;
                         return mentionsList[idx] ? `@${mentionsList[idx].split('@')[0]}` : match;
-                    }).replace(/{user}/g, `@${mentionsList[0].split('@')[0]}`);
+                    }).replace(/{user}/g, `@${mentionsList[0]?.split('@')[0] || 'Desconocido'}`);
                 } else {
-                    caption = messageType === 'emotions' ? `@${mentionsList[0].split('@')[0]} ${label}` : `@${mentionsList[0].split('@')[0]} le dio un ${label} a @${mentionsList[1].split('@')[0]}`;
+                    const u1 = mentionsList[0]?.split('@')[0] || 'Desconocido';
+                    const u2 = mentionsList[1]?.split('@')[0] || 'Desconocido';
+                    caption = messageType === 'emotions' ? `@${u1} ${label}` : `@${u1} le dio un ${label} a @${u2}`;
                 }
             }
             
@@ -227,4 +236,3 @@ export class NekoReact {
 }
 
 export default NekoReact;
-            
